@@ -332,14 +332,24 @@
   border-color: #1d9bf0;
 }
 
-.ceo-action-open {
+.ceo-action-goodfind {
   color: #ffd400;
   border: 1px solid #7a6600;
 }
 
-.ceo-action-open:hover {
+.ceo-action-goodfind:hover {
   background: rgba(255, 212, 0, 0.1);
   border-color: #ffd400;
+}
+
+.ceo-action-open {
+  color: #8b5cf6;
+  border: 1px solid #5b21b6;
+}
+
+.ceo-action-open:hover {
+  background: rgba(139, 92, 246, 0.1);
+  border-color: #8b5cf6;
 }
 
 .ceo-action-accept {

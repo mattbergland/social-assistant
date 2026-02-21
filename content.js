@@ -304,6 +304,10 @@
               <span>✕</span>
               <span class="ceo-action-label">Skip</span>
             </button>
+            <button class="ceo-action-btn ceo-action-goodfind" id="ceo-goodfind" title="Good Find - I'll write my own reply">
+              <span>⭐</span>
+              <span class="ceo-action-label">Good Find</span>
+            </button>
             <button class="ceo-action-btn ceo-action-view" id="ceo-view" title="Go to Tweet">
               <span>👁</span>
               <span class="ceo-action-label">View</span>
@@ -331,6 +335,7 @@
     document.getElementById('ceo-panel-close').addEventListener('click', () => togglePanel(false));
     document.getElementById('ceo-find-btn').addEventListener('click', findOpportunities);
     document.getElementById('ceo-reject').addEventListener('click', () => handleAction('reject'));
+    document.getElementById('ceo-goodfind').addEventListener('click', () => handleAction('goodfind'));
     document.getElementById('ceo-view').addEventListener('click', () => handleAction('view'));
     document.getElementById('ceo-open').addEventListener('click', () => handleAction('open'));
     document.getElementById('ceo-accept').addEventListener('click', () => handleAction('accept'));
@@ -436,6 +441,32 @@
       
       // Track the post
       chrome.runtime.sendMessage({ action: 'postComment', suggestion });
+      
+      setTimeout(() => nextCard(), 300);
+    } else if (action === 'goodfind') {
+      // Mark as good find - user will write their own reply
+      card.classList.add('ceo-card-exit-right');
+      suggestion.status = 'goodfind';
+      suggestion.markedAt = new Date().toISOString();
+      
+      // Save to good finds list for learning
+      const goodFinds = await chrome.storage.local.get(['goodFinds']);
+      const finds = goodFinds.goodFinds || [];
+      finds.push({
+        tweet: suggestion.thread,
+        aiSuggestion: suggestion.reply,
+        markedAt: suggestion.markedAt,
+        userReply: null // Will be filled in later when we detect their reply
+      });
+      await chrome.storage.local.set({ goodFinds: finds });
+      
+      showToast('Marked as good find! Go write your reply.', 'success');
+      updateStatus('Good find saved! Your reply will be tracked for learning.', '⭐');
+      
+      // Open the tweet so they can reply
+      if (suggestion.thread.url) {
+        window.open(suggestion.thread.url, '_blank');
+      }
       
       setTimeout(() => nextCard(), 300);
     } else if (action === 'view') {
@@ -752,6 +783,9 @@
       return;
     }
     
+    // Save the analysis date for bi-weekly refresh tracking
+    await chrome.storage.local.set({ styleProfileLastAnalyzed: new Date().toISOString() });
+    
     updateStatus('Style profile created! Ready to generate suggestions.', '✅');
     showToast('Writing style analyzed successfully!', 'success');
   }
@@ -850,12 +884,13 @@
       return;
     }
     
-    // Mark this profile as analyzed in storage
+    // Mark this profile as analyzed in storage with timestamp for bi-weekly refresh
     const settings = await chrome.storage.local.get(['inspirationProfiles']);
     const profiles = settings.inspirationProfiles || [];
     const profileIndex = profiles.findIndex(p => p.handle.toLowerCase() === cleanHandle.toLowerCase());
     if (profileIndex >= 0) {
       profiles[profileIndex].analyzed = true;
+      profiles[profileIndex].lastAnalyzed = new Date().toISOString();
       await chrome.storage.local.set({ inspirationProfiles: profiles });
     }
     

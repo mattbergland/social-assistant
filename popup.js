@@ -62,6 +62,7 @@ async function loadSettings() {
     'topics',
     'aboutContext',
     'styleProfile',
+    'styleProfileLastAnalyzed',
     'inspirationProfiles'
   ]);
   
@@ -87,6 +88,9 @@ async function loadSettings() {
   
   // Update status based on settings
   updateStatus(settings);
+  
+  // Check for bi-weekly refresh reminder
+  checkRefreshReminder(settings);
   
   // Add provider change listener
   document.getElementById('api-provider').addEventListener('change', (e) => {
@@ -480,6 +484,61 @@ function showNotification(message, type) {
   `;
 }
 
+// Check if profiles need bi-weekly refresh
+function checkRefreshReminder(settings) {
+  const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000; // 14 days in milliseconds
+  const now = Date.now();
+  
+  const needsRefresh = [];
+  
+  // Check user's own style profile
+  if (settings.styleProfile && settings.styleProfileLastAnalyzed) {
+    const lastAnalyzed = new Date(settings.styleProfileLastAnalyzed).getTime();
+    if (now - lastAnalyzed > TWO_WEEKS_MS) {
+      needsRefresh.push('your profile');
+    }
+  }
+  
+  // Check inspiration profiles
+  const inspirationProfiles = settings.inspirationProfiles || [];
+  const staleInspirations = inspirationProfiles.filter(p => {
+    if (p.analyzed && p.lastAnalyzed) {
+      const lastAnalyzed = new Date(p.lastAnalyzed).getTime();
+      return now - lastAnalyzed > TWO_WEEKS_MS;
+    }
+    return false;
+  });
+  
+  if (staleInspirations.length > 0) {
+    needsRefresh.push(`${staleInspirations.length} inspiration profile(s)`);
+  }
+  
+  // Show reminder if any profiles need refresh
+  if (needsRefresh.length > 0) {
+    const refreshContainer = document.getElementById('refresh-reminder');
+    if (refreshContainer) {
+      refreshContainer.innerHTML = `
+        <div class="status warning" style="cursor: pointer;" onclick="showRefreshDetails()">
+          <div class="status-dot"></div>
+          <span>Time to refresh ${needsRefresh.join(' and ')} (2+ weeks old)</span>
+        </div>
+      `;
+      refreshContainer.style.display = 'block';
+    }
+  }
+}
+
+// Show details about what needs refreshing
+window.showRefreshDetails = function() {
+  // Switch to settings tab
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+  document.querySelector('[data-tab="settings"]').classList.add('active');
+  document.getElementById('settings').classList.add('active');
+  
+  showNotification('Re-analyze your profiles to keep suggestions fresh!', 'warning');
+};
+
 // Export settings to JSON file
 async function exportSettings() {
   const btn = document.getElementById('export-settings');
@@ -495,8 +554,10 @@ async function exportSettings() {
       'topics',
       'aboutContext',
       'styleProfile',
+      'styleProfileLastAnalyzed',
       'inspirationProfiles',
-      'inspirationStyles'
+      'inspirationStyles',
+      'goodFinds'
     ]);
     
     // Create export object with metadata
