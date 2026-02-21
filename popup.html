@@ -395,6 +395,14 @@
     
     <button class="btn btn-primary" id="save-settings">Save Settings</button>
     <button class="btn btn-secondary" id="analyze-style">Analyze My Writing Style</button>
+    
+    <div class="section" style="margin-top: 24px; padding-top: 20px; border-top: 1px solid #2f3336;">
+      <div class="section-title">Backup & Restore</div>
+      <small style="color: #71767b; display: block; margin-bottom: 12px;">Export your settings before updating the extension, then import them after</small>
+      <button class="btn btn-secondary" id="export-settings" style="margin-top: 0;">Export Settings</button>
+      <button class="btn btn-secondary" id="import-settings">Import Settings</button>
+      <input type="file" id="import-file" accept=".json" style="display: none;">
+    </div>
   </div>
   
   <script src="popup.js"></script>

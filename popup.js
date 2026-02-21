@@ -37,6 +37,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (e.key === 'Enter') addInspiration();
   });
   document.getElementById('analyze-inspiration').addEventListener('click', analyzeInspirationProfiles);
+  
+  // Export/Import settings listeners
+  document.getElementById('export-settings').addEventListener('click', exportSettings);
+  document.getElementById('import-settings').addEventListener('click', () => {
+    document.getElementById('import-file').click();
+  });
+  document.getElementById('import-file').addEventListener('change', importSettings);
 });
 
 // API provider hints
@@ -471,4 +478,105 @@ function showNotification(message, type) {
       <span>${message}</span>
     </div>
   `;
+}
+
+// Export settings to JSON file
+async function exportSettings() {
+  const btn = document.getElementById('export-settings');
+  btn.textContent = 'Exporting...';
+  btn.disabled = true;
+  
+  try {
+    // Get all settings from storage
+    const settings = await chrome.storage.local.get([
+      'apiKey',
+      'apiProvider',
+      'twitterHandle',
+      'topics',
+      'aboutContext',
+      'styleProfile',
+      'inspirationProfiles',
+      'inspirationStyles'
+    ]);
+    
+    // Create export object with metadata
+    const exportData = {
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      settings: settings
+    };
+    
+    // Create and download JSON file
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `ceo-social-assistant-settings-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    showNotification('Settings exported successfully!', 'success');
+    btn.textContent = 'Exported!';
+    btn.style.background = '#00ba7c';
+    
+    setTimeout(() => {
+      btn.textContent = 'Export Settings';
+      btn.style.background = '';
+      btn.disabled = false;
+    }, 2000);
+    
+  } catch (error) {
+    console.error('Error exporting settings:', error);
+    showNotification('Error exporting settings', 'error');
+    btn.textContent = 'Export Settings';
+    btn.disabled = false;
+  }
+}
+
+// Import settings from JSON file
+async function importSettings(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  const btn = document.getElementById('import-settings');
+  btn.textContent = 'Importing...';
+  btn.disabled = true;
+  
+  try {
+    const text = await file.text();
+    const importData = JSON.parse(text);
+    
+    // Validate the import data
+    if (!importData.settings) {
+      throw new Error('Invalid settings file');
+    }
+    
+    // Import all settings
+    await chrome.storage.local.set(importData.settings);
+    
+    // Reload the UI with imported settings
+    await loadSettings();
+    await loadStats();
+    
+    showNotification('Settings imported successfully!', 'success');
+    btn.textContent = 'Imported!';
+    btn.style.background = '#00ba7c';
+    
+    setTimeout(() => {
+      btn.textContent = 'Import Settings';
+      btn.style.background = '';
+      btn.disabled = false;
+    }, 2000);
+    
+  } catch (error) {
+    console.error('Error importing settings:', error);
+    showNotification('Error: Invalid settings file', 'error');
+    btn.textContent = 'Import Settings';
+    btn.disabled = false;
+  }
+  
+  // Reset the file input so the same file can be selected again
+  event.target.value = '';
 }
