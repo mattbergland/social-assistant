@@ -332,6 +332,16 @@
   border-color: #1d9bf0;
 }
 
+.ceo-action-open {
+  color: #ffd400;
+  border: 1px solid #7a6600;
+}
+
+.ceo-action-open:hover {
+  background: rgba(255, 212, 0, 0.1);
+  border-color: #ffd400;
+}
+
 .ceo-action-accept {
   color: #00ba7c;
   border: 1px solid #00573b;

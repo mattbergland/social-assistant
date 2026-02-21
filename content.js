@@ -304,9 +304,13 @@
               <span>✕</span>
               <span class="ceo-action-label">Skip</span>
             </button>
-            <button class="ceo-action-btn ceo-action-view" id="ceo-view" title="View Tweet">
+            <button class="ceo-action-btn ceo-action-view" id="ceo-view" title="Go to Tweet">
               <span>👁</span>
               <span class="ceo-action-label">View</span>
+            </button>
+            <button class="ceo-action-btn ceo-action-open" id="ceo-open" title="Open in New Tab">
+              <span>↗</span>
+              <span class="ceo-action-label">Open</span>
             </button>
             <button class="ceo-action-btn ceo-action-accept" id="ceo-accept" title="Post Reply">
               <span>✓</span>
@@ -328,6 +332,7 @@
     document.getElementById('ceo-find-btn').addEventListener('click', findOpportunities);
     document.getElementById('ceo-reject').addEventListener('click', () => handleAction('reject'));
     document.getElementById('ceo-view').addEventListener('click', () => handleAction('view'));
+    document.getElementById('ceo-open').addEventListener('click', () => handleAction('open'));
     document.getElementById('ceo-accept').addEventListener('click', () => handleAction('accept'));
     
     // Swipe handling
@@ -434,6 +439,12 @@
       
       setTimeout(() => nextCard(), 300);
     } else if (action === 'view') {
+      // Navigate to tweet in same window
+      if (suggestion.thread.url) {
+        window.location.href = suggestion.thread.url;
+      }
+    } else if (action === 'open') {
+      // Open tweet in new tab
       if (suggestion.thread.url) {
         window.open(suggestion.thread.url, '_blank');
       }
