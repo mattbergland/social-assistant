@@ -26,6 +26,11 @@
       sendResponse({ success: true });
     }
     
+    if (request.action === 'analyzeInspirationProfile') {
+      analyzeInspirationProfile(request.handle);
+      sendResponse({ success: true });
+    }
+    
     return true;
   });
   
@@ -801,6 +806,49 @@
     window.scrollTo(0, 0);
     
     return Array.from(tweets);
+  }
+  
+  // Analyze an inspiration profile's writing style
+  async function analyzeInspirationProfile(handle) {
+    const cleanHandle = handle.replace('@', '');
+    
+    showToast(`Analyzing @${cleanHandle}'s style...`, 'info');
+    
+    // Wait a moment for tweets to load
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Scrape their tweets with auto-scrolling (collect up to 50)
+    const tweets = await scrapeUserTweets(50);
+    
+    if (tweets.length < 5) {
+      showToast(`Could not find enough tweets from @${cleanHandle}`, 'error');
+      return;
+    }
+    
+    showToast(`Found ${tweets.length} tweets from @${cleanHandle}, analyzing...`, 'info');
+    
+    // Send to background for analysis
+    const response = await chrome.runtime.sendMessage({
+      action: 'analyzeInspirationStyleFromTweets',
+      handle: cleanHandle,
+      tweets
+    });
+    
+    if (response.error) {
+      showToast(`Error analyzing @${cleanHandle}: ${response.error}`, 'error');
+      return;
+    }
+    
+    // Mark this profile as analyzed in storage
+    const settings = await chrome.storage.local.get(['inspirationProfiles']);
+    const profiles = settings.inspirationProfiles || [];
+    const profileIndex = profiles.findIndex(p => p.handle.toLowerCase() === cleanHandle.toLowerCase());
+    if (profileIndex >= 0) {
+      profiles[profileIndex].analyzed = true;
+      await chrome.storage.local.set({ inspirationProfiles: profiles });
+    }
+    
+    showToast(`@${cleanHandle}'s style analyzed!`, 'success');
   }
   
   // Initialize

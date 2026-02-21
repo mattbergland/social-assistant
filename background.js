@@ -24,6 +24,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
   
+  if (request.action === 'analyzeInspirationStyleFromTweets') {
+    analyzeInspirationStyleFromTweets(request.handle, request.tweets).then(sendResponse);
+    return true;
+  }
+  
   if (request.action === 'postComment') {
     // Track posted comments
     trackPostedComment(request.suggestion);
@@ -98,9 +103,24 @@ async function generateSuggestions(data) {
 
 // Generate a single suggestion
 async function generateSingleSuggestion(thread, styleProfile, aboutContext, topics, apiKey, provider = 'openai') {
+  // Get inspiration styles
+  const inspirationData = await chrome.storage.local.get(['inspirationStyles']);
+  const inspirationStyles = inspirationData.inspirationStyles || {};
+  
+  // Build inspiration section if we have any
+  let inspirationSection = '';
+  const styleEntries = Object.values(inspirationStyles);
+  if (styleEntries.length > 0) {
+    inspirationSection = `## Inspiration Styles (blend these into your voice)\n`;
+    for (const entry of styleEntries) {
+      inspirationSection += `### @${entry.handle}'s Style:\n${entry.styleProfile}\n\n`;
+    }
+  }
+  
   const systemPrompt = `You help a busy executive write quick, authentic Twitter replies.
 
 ${styleProfile ? `## Their Writing Style\n${styleProfile}\n` : ''}
+${inspirationSection}
 ${aboutContext ? `## About Them\n${aboutContext}\n` : ''}
 
 ## CRITICAL RULES
@@ -330,6 +350,59 @@ Create a detailed writing style profile for this user.`;
     return { success: true, styleProfile };
   } catch (error) {
     console.error('Error analyzing style:', error);
+    return { error: 'Failed to analyze style' };
+  }
+}
+
+// Analyze inspiration profile's writing style
+async function analyzeInspirationStyleFromTweets(handle, tweets) {
+  const settings = await chrome.storage.local.get(['apiKey', 'apiProvider']);
+  
+  if (!settings.apiKey) {
+    return { error: 'API key not configured' };
+  }
+  
+  const systemPrompt = `You are an expert at analyzing writing styles. Given a collection of tweets from @${handle}, create a concise writing style profile that captures their unique voice.
+
+Focus on:
+1. Tone and attitude (confident, humble, provocative, etc.)
+2. Sentence structure (short punchy vs flowing)
+3. Vocabulary and word choices
+4. How they engage with ideas (direct opinions, questions, observations)
+5. Any signature phrases or patterns
+6. What makes their voice distinctive
+
+Keep the profile concise (2-3 paragraphs max) - this will be used as inspiration for generating replies.`;
+
+  const userPrompt = `Here are @${handle}'s recent tweets:\n\n${tweets.map((t, i) => `${i + 1}. ${t}`).join('\n\n')}
+
+Create a concise writing style profile for @${handle}.`;
+
+  try {
+    const styleProfile = await callAI(
+      settings.apiProvider || 'openai',
+      settings.apiKey,
+      systemPrompt,
+      userPrompt
+    );
+    
+    if (!styleProfile) {
+      return { error: 'Failed to analyze style' };
+    }
+    
+    // Save inspiration style profile
+    const existingStyles = await chrome.storage.local.get(['inspirationStyles']);
+    const styles = existingStyles.inspirationStyles || {};
+    styles[handle.toLowerCase()] = {
+      handle,
+      styleProfile,
+      analyzedAt: new Date().toISOString()
+    };
+    await chrome.storage.local.set({ inspirationStyles: styles });
+    
+    return { success: true, styleProfile };
+  } catch (error) {
+    console.error('Error analyzing inspiration style:', error);
     return { error: 'Failed to analyze style' };
   }
 }

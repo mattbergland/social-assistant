@@ -30,6 +30,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('find-opportunities').addEventListener('click', findOpportunities);
   document.getElementById('open-panel').addEventListener('click', openPanel);
   document.getElementById('analyze-style').addEventListener('click', analyzeStyle);
+  
+  // Inspiration profiles listeners
+  document.getElementById('add-inspiration-btn').addEventListener('click', addInspiration);
+  document.getElementById('new-inspiration').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') addInspiration();
+  });
+  document.getElementById('analyze-inspiration').addEventListener('click', analyzeInspirationProfiles);
 });
 
 // API provider hints
@@ -47,7 +54,8 @@ async function loadSettings() {
     'twitterHandle',
     'topics',
     'aboutContext',
-    'styleProfile'
+    'styleProfile',
+    'inspirationProfiles'
   ]);
   
   if (settings.apiProvider) {
@@ -68,6 +76,7 @@ async function loadSettings() {
   }
   
   renderTopics(settings.topics || ['AI', 'startups', 'leadership']);
+  renderInspirationProfiles(settings.inspirationProfiles || []);
   
   // Update status based on settings
   updateStatus(settings);
@@ -189,6 +198,142 @@ window.removeTopic = async function(topic) {
   await chrome.storage.local.set({ topics });
   renderTopics(topics);
 };
+
+// Inspiration profiles management
+function renderInspirationProfiles(profiles) {
+  const container = document.getElementById('inspiration-list');
+  if (profiles.length === 0) {
+    container.innerHTML = '<span style="color: #71767b; font-size: 13px;">No inspiration profiles added yet</span>';
+    return;
+  }
+  container.innerHTML = profiles.map(profile => `
+    <span class="topic-tag active" data-profile="${profile.handle}">
+      @${profile.handle}
+      ${profile.analyzed ? '<span style="color: #00ba7c; margin-left: 4px;">✓</span>' : ''}
+      <span class="remove" onclick="removeInspiration('${profile.handle}')">×</span>
+    </span>
+  `).join('');
+}
+
+async function addInspiration() {
+  const input = document.getElementById('new-inspiration');
+  const rawInput = input.value.trim();
+  
+  if (!rawInput) return;
+  
+  // Parse multiple handles (comma or space separated)
+  const handles = rawInput.split(/[,\s]+/).map(h => h.replace('@', '').trim()).filter(h => h);
+  
+  if (handles.length === 0) return;
+  
+  const settings = await chrome.storage.local.get(['inspirationProfiles']);
+  const profiles = settings.inspirationProfiles || [];
+  
+  let added = 0;
+  for (const handle of handles) {
+    if (!profiles.find(p => p.handle.toLowerCase() === handle.toLowerCase())) {
+      profiles.push({ handle, analyzed: false });
+      added++;
+    }
+  }
+  
+  if (added > 0) {
+    await chrome.storage.local.set({ inspirationProfiles: profiles });
+    renderInspirationProfiles(profiles);
+    showNotification(`Added ${added} inspiration profile(s)`, 'success');
+  } else {
+    showNotification('Profile(s) already added', 'warning');
+  }
+  
+  input.value = '';
+}
+
+window.removeInspiration = async function(handle) {
+  const settings = await chrome.storage.local.get(['inspirationProfiles']);
+  const profiles = (settings.inspirationProfiles || []).filter(p => p.handle !== handle);
+  await chrome.storage.local.set({ inspirationProfiles: profiles });
+  renderInspirationProfiles(profiles);
+};
+
+// Analyze inspiration profiles
+async function analyzeInspirationProfiles() {
+  const btn = document.getElementById('analyze-inspiration');
+  
+  const settings = await chrome.storage.local.get(['inspirationProfiles', 'apiKey']);
+  const profiles = settings.inspirationProfiles || [];
+  
+  if (profiles.length === 0) {
+    showNotification('Add some inspiration profiles first', 'error');
+    return;
+  }
+  
+  if (!settings.apiKey) {
+    showNotification('Please add your API key first', 'error');
+    return;
+  }
+  
+  // Find profiles that haven't been analyzed yet
+  const toAnalyze = profiles.filter(p => !p.analyzed);
+  
+  if (toAnalyze.length === 0) {
+    showNotification('All profiles already analyzed! Add more or re-add to refresh.', 'success');
+    return;
+  }
+  
+  btn.textContent = `Analyzing ${toAnalyze.length} profile(s)...`;
+  btn.disabled = true;
+  
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    
+    if (!tab.url.includes('twitter.com') && !tab.url.includes('x.com')) {
+      showNotification('Please navigate to Twitter first', 'error');
+      btn.textContent = 'Analyze Inspiration Styles';
+      btn.disabled = false;
+      return;
+    }
+    
+    // Analyze each profile one by one
+    for (const profile of toAnalyze) {
+      showNotification(`Analyzing @${profile.handle}...`, 'success');
+      
+      // Navigate to the profile
+      await chrome.tabs.update(tab.id, { url: `https://twitter.com/${profile.handle}` });
+      
+      // Wait for page to load
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Send message to analyze
+      await chrome.tabs.sendMessage(tab.id, { 
+        action: 'analyzeInspirationProfile', 
+        handle: profile.handle 
+      });
+      
+      // Wait for analysis to complete
+      await new Promise(resolve => setTimeout(resolve, 15000));
+    }
+    
+    showNotification('Inspiration profiles analyzed!', 'success');
+    btn.textContent = 'Analysis Complete!';
+    btn.style.background = '#00ba7c';
+    
+    // Reload profiles to show updated status
+    const updatedSettings = await chrome.storage.local.get(['inspirationProfiles']);
+    renderInspirationProfiles(updatedSettings.inspirationProfiles || []);
+    
+    setTimeout(() => {
+      btn.textContent = 'Analyze Inspiration Styles';
+      btn.style.background = '';
+      btn.disabled = false;
+    }, 3000);
+    
+  } catch (error) {
+    console.error('Error analyzing inspiration profiles:', error);
+    showNotification('Error analyzing profiles', 'error');
+    btn.textContent = 'Analyze Inspiration Styles';
+    btn.disabled = false;
+  }
+}
 
 // Find engagement opportunities
 async function findOpportunities() {
