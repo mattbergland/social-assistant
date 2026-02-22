@@ -297,12 +297,72 @@
       display: block;
     }
     
-    .hidden {
-      display: none;
-    }
-  </style>
+      .hidden {
+        display: none;
+      }
+    
+      /* Loading Overlay */
+      .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(15, 15, 15, 0.95);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+      }
+    
+      .loading-overlay.hidden {
+        display: none;
+      }
+    
+      .loading-content {
+        text-align: center;
+        padding: 24px;
+      }
+    
+      .loading-spinner {
+        width: 48px;
+        height: 48px;
+        border: 3px solid #2f3336;
+        border-top-color: #1d9bf0;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 16px;
+      }
+    
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    
+      .loading-text {
+        font-size: 16px;
+        font-weight: 600;
+        color: #e7e9ea;
+        margin-bottom: 8px;
+      }
+    
+      .loading-subtext {
+        font-size: 13px;
+        color: #71767b;
+        max-width: 280px;
+        line-height: 1.4;
+      }
+    </style>
 </head>
 <body>
+  <!-- Loading Overlay -->
+  <div id="loading-overlay" class="loading-overlay hidden">
+    <div class="loading-content">
+      <div class="loading-spinner"></div>
+      <div class="loading-text" id="loading-text">Analyzing...</div>
+      <div class="loading-subtext" id="loading-subtext">This may take a minute. You can close this popup - the process will continue in the background.</div>
+    </div>
+  </div>
+
   <div class="header">
     <div class="logo">🎯</div>
     <div>

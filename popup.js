@@ -294,10 +294,14 @@ async function analyzeInspirationProfiles() {
   btn.textContent = `Analyzing ${toAnalyze.length} profile(s)...`;
   btn.disabled = true;
   
+  // Show loading overlay
+  showLoading(`Analyzing ${toAnalyze.length} Inspiration Profile(s)`, 'Navigating to each profile and collecting tweets. This will take about 20 seconds per profile.');
+  
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     
     if (!tab.url.includes('twitter.com') && !tab.url.includes('x.com')) {
+      hideLoading();
       showNotification('Please navigate to Twitter first', 'error');
       btn.textContent = 'Analyze Inspiration Styles';
       btn.disabled = false;
@@ -305,8 +309,9 @@ async function analyzeInspirationProfiles() {
     }
     
     // Analyze each profile one by one
-    for (const profile of toAnalyze) {
-      showNotification(`Analyzing @${profile.handle}...`, 'success');
+    for (let i = 0; i < toAnalyze.length; i++) {
+      const profile = toAnalyze[i];
+      updateLoadingText(`Analyzing @${profile.handle} (${i + 1}/${toAnalyze.length})`, 'Navigating to profile and collecting tweets...');
       
       // Navigate to the profile
       await chrome.tabs.update(tab.id, { url: `https://twitter.com/${profile.handle}` });
@@ -324,6 +329,7 @@ async function analyzeInspirationProfiles() {
       await new Promise(resolve => setTimeout(resolve, 15000));
     }
     
+    hideLoading();
     showNotification('Inspiration profiles analyzed!', 'success');
     btn.textContent = 'Analysis Complete!';
     btn.style.background = '#00ba7c';
@@ -340,6 +346,7 @@ async function analyzeInspirationProfiles() {
     
   } catch (error) {
     console.error('Error analyzing inspiration profiles:', error);
+    hideLoading();
     showNotification('Error analyzing profiles', 'error');
     btn.textContent = 'Analyze Inspiration Styles';
     btn.disabled = false;
@@ -433,17 +440,22 @@ async function analyzeStyle() {
       return;
     }
     
-    await chrome.tabs.sendMessage(tab.id, { action: 'analyzeStyle', handle });
-    showNotification('Collecting & analyzing tweets... Check the Twitter tab!', 'success');
+    // Show loading overlay
+    showLoading('Analyzing Your Writing Style', 'Collecting tweets and analyzing your voice, tone, and patterns. This takes about 30-60 seconds.');
     
-    // Don't close popup - let user see the status
-    btn.textContent = 'Analysis in progress...';
+    await chrome.tabs.sendMessage(tab.id, { action: 'analyzeStyle', handle });
     
     // Keep checking if analysis is done
+    let dots = 0;
     const checkInterval = setInterval(async () => {
+      dots = (dots + 1) % 4;
+      const dotStr = '.'.repeat(dots);
+      updateLoadingText(`Analyzing Your Writing Style${dotStr}`, 'Collecting tweets and analyzing your voice, tone, and patterns. This takes about 30-60 seconds.');
+      
       const data = await chrome.storage.local.get(['styleProfile']);
       if (data.styleProfile) {
         clearInterval(checkInterval);
+        hideLoading();
         btn.textContent = 'Analysis Complete!';
         btn.style.background = '#00ba7c';
         showNotification('Writing style analyzed! Ready to generate suggestions.', 'success');
@@ -454,19 +466,22 @@ async function analyzeStyle() {
           btn.disabled = false;
         }, 3000);
       }
-    }, 2000);
+    }, 1000);
     
-    // Timeout after 60 seconds
+    // Timeout after 90 seconds
     setTimeout(() => {
       clearInterval(checkInterval);
-      if (btn.textContent === 'Analysis in progress...') {
+      hideLoading();
+      if (btn.textContent !== 'Analysis Complete!') {
         btn.textContent = 'Analyze My Writing Style';
         btn.disabled = false;
+        showNotification('Analysis timed out. Please try again.', 'error');
       }
-    }, 60000);
+    }, 90000);
     
   } catch (error) {
     console.error('Error analyzing style:', error);
+    hideLoading();
     showNotification('Error: Make sure you\'re on Twitter', 'error');
     btn.textContent = 'Analyze My Writing Style';
     btn.disabled = false;
@@ -482,6 +497,33 @@ function showNotification(message, type) {
       <span>${message}</span>
     </div>
   `;
+}
+
+// Show loading overlay
+function showLoading(text, subtext) {
+  const overlay = document.getElementById('loading-overlay');
+  const loadingText = document.getElementById('loading-text');
+  const loadingSubtext = document.getElementById('loading-subtext');
+  
+  loadingText.textContent = text || 'Analyzing...';
+  loadingSubtext.textContent = subtext || 'This may take a minute. You can close this popup - the process will continue in the background.';
+  
+  overlay.classList.remove('hidden');
+}
+
+// Hide loading overlay
+function hideLoading() {
+  const overlay = document.getElementById('loading-overlay');
+  overlay.classList.add('hidden');
+}
+
+// Update loading text
+function updateLoadingText(text, subtext) {
+  const loadingText = document.getElementById('loading-text');
+  const loadingSubtext = document.getElementById('loading-subtext');
+  
+  if (text) loadingText.textContent = text;
+  if (subtext) loadingSubtext.textContent = subtext;
 }
 
 // Check if profiles need bi-weekly refresh
