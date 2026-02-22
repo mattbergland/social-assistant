@@ -466,32 +466,28 @@
       chrome.runtime.sendMessage({ action: 'postComment', suggestion });
       
       setTimeout(() => nextCard(), 300);
-    } else if (action === 'goodfind') {
-      // Mark as good find - user will write their own reply
-      card.classList.add('ceo-card-exit-right');
-      suggestion.status = 'goodfind';
-      suggestion.markedAt = new Date().toISOString();
+        } else if (action === 'goodfind') {
+          // Mark as good find - user will write their own reply
+          card.classList.add('ceo-card-exit-right');
+          suggestion.status = 'goodfind';
+          suggestion.markedAt = new Date().toISOString();
       
-      // Save to good finds list for learning
-      const goodFinds = await chrome.storage.local.get(['goodFinds']);
-      const finds = goodFinds.goodFinds || [];
-      finds.push({
-        tweet: suggestion.thread,
-        aiSuggestion: suggestion.reply,
-        markedAt: suggestion.markedAt,
-        userReply: null // Will be filled in later when we detect their reply
-      });
-      await chrome.storage.local.set({ goodFinds: finds });
+          // Save to good finds list for learning
+          const goodFinds = await chrome.storage.local.get(['goodFinds']);
+          const finds = goodFinds.goodFinds || [];
+          finds.push({
+            tweet: suggestion.thread,
+            aiSuggestion: suggestion.reply,
+            markedAt: suggestion.markedAt,
+            userReply: null // Will be filled in later when we detect their reply
+          });
+          await chrome.storage.local.set({ goodFinds: finds });
       
-      showToast('Marked as good find! Go write your reply.', 'success');
-      updateStatus('Good find saved! Your reply will be tracked for learning.', '⭐');
+          showToast('Marked as good find! Use View or Open to reply.', 'success');
+          updateStatus('Good find saved! Use View or Open to go to the tweet.', '⭐');
       
-      // Open the tweet so they can reply
-      if (suggestion.thread.url) {
-        window.open(suggestion.thread.url, '_blank');
-      }
-      
-      setTimeout(() => nextCard(), 300);
+          // Don't navigate - just move to next card, user can use View/Open buttons
+          setTimeout(() => nextCard(), 300);
         } else if (action === 'view') {
           // Save current position so we can reopen panel after navigation
           await chrome.storage.local.set({ 
