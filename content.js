@@ -237,11 +237,28 @@
     });
   }
   
-  // Initialize reply buttons after a delay (wait for Twitter to load)
-  setTimeout(() => {
-    injectReplyButtons();
-    setupMutationObserver();
-  }, 2000);
+        // Initialize reply buttons after a delay (wait for Twitter to load)
+        setTimeout(async () => {
+          injectReplyButtons();
+          setupMutationObserver();
+    
+          // Check if we should reopen the panel (after View button navigation)
+          const data = await chrome.storage.local.get(['reopenPanel', 'reopenIndex', 'pendingStyleAnalysis']);
+          if (data.reopenPanel) {
+            // Clear the flag
+            await chrome.storage.local.remove(['reopenPanel']);
+            // Reopen the panel at the saved position
+            togglePanel(true);
+          }
+      
+          // Check if we need to continue style analysis after navigation
+          if (data.pendingStyleAnalysis) {
+            // Clear the flag
+            await chrome.storage.local.remove(['pendingStyleAnalysis']);
+            // Continue the analysis
+            analyzeUserStyle(data.pendingStyleAnalysis);
+          }
+        }, 2000);
   
   // Create and inject the suggestion panel
   function createPanel() {
@@ -357,19 +374,25 @@
     }
   }
   
-  // Load suggestions from storage
-  async function loadSuggestions() {
-    const data = await chrome.storage.local.get(['suggestions']);
-    suggestions = data.suggestions || [];
-    currentIndex = 0;
+    // Load suggestions from storage
+    async function loadSuggestions() {
+      const data = await chrome.storage.local.get(['suggestions', 'reopenIndex']);
+      suggestions = data.suggestions || [];
     
-    if (suggestions.length > 0) {
-      showCardView();
-      renderCurrentCard();
-    } else {
-      showEmptyState();
+      // Restore position if we navigated from View button
+      if (data.reopenIndex !== undefined && data.reopenIndex < suggestions.length) {
+        currentIndex = data.reopenIndex;
+      } else {
+        currentIndex = 0;
+      }
+    
+      if (suggestions.length > 0) {
+        showCardView();
+        renderCurrentCard();
+      } else {
+        showEmptyState();
+      }
     }
-  }
   
   // Show empty state
   function showEmptyState() {
@@ -469,12 +492,17 @@
       }
       
       setTimeout(() => nextCard(), 300);
-    } else if (action === 'view') {
-      // Navigate to tweet in same window
-      if (suggestion.thread.url) {
-        window.location.href = suggestion.thread.url;
-      }
-    } else if (action === 'open') {
+        } else if (action === 'view') {
+          // Save current position so we can reopen panel after navigation
+          await chrome.storage.local.set({ 
+            reopenPanel: true, 
+            reopenIndex: currentIndex 
+          });
+          // Navigate to tweet in same window
+          if (suggestion.thread.url) {
+            window.location.href = suggestion.thread.url;
+          }
+        } else if (action === 'open') {
       // Open tweet in new tab
       if (suggestion.thread.url) {
         window.open(suggestion.thread.url, '_blank');
@@ -738,24 +766,24 @@
   }
   
   // Analyze user's writing style
-  async function analyzeUserStyle(handle) {
-    togglePanel(true);
-    updateStatus('Navigating to your profile...', '🔍');
+    async function analyzeUserStyle(handle) {
+      // Clean handle
+      const cleanHandle = handle.replace('@', '');
     
-    // Clean handle
-    const cleanHandle = handle.replace('@', '');
+      // Navigate to user's profile
+      const profileUrl = `https://twitter.com/${cleanHandle}`;
     
-    // Navigate to user's profile
-    const profileUrl = `https://twitter.com/${cleanHandle}`;
+      // If not on the profile, navigate there in the same tab (like inspiration profiles)
+      if (!window.location.href.includes(`/${cleanHandle}`)) {
+        showToast(`Navigating to @${cleanHandle}'s profile...`, 'info');
+        // Save a flag so we know to continue analysis after navigation
+        await chrome.storage.local.set({ pendingStyleAnalysis: cleanHandle });
+        window.location.href = profileUrl;
+        return;
+      }
     
-    // We'll scrape from current page if we're on the profile, otherwise instruct user
-    if (!window.location.href.includes(`/${cleanHandle}`)) {
-      updateStatus(`Please navigate to twitter.com/${cleanHandle} first`, '⚠️');
-      window.open(profileUrl, '_blank');
-      return;
-    }
-    
-    updateStatus('Starting tweet collection...', '📝');
+      togglePanel(true);
+      updateStatus('Starting tweet collection...', '📝');
     
     // Wait a moment for tweets to load
     await new Promise(resolve => setTimeout(resolve, 2000));
