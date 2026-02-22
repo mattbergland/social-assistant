@@ -255,7 +255,7 @@
       <div class="ceo-panel-header">
         <div class="ceo-panel-title">
           <span class="ceo-panel-logo">🎯</span>
-          <span>CEO Assistant</span>
+          <span>Dartboard</span>
         </div>
         <button class="ceo-panel-close" id="ceo-panel-close">×</button>
       </div>

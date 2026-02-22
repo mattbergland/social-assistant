@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "CEO Social Assistant",
+  "name": "Dartboard - Social Assistant",
   "version": "1.0.0",
-  "description": "AI-powered social media engagement assistant for busy executives",
+  "description": "AI-powered social media engagement assistant for busy executives. dartboard.social",
   "permissions": [
     "storage",
     "activeTab"
