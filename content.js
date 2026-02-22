@@ -558,14 +558,15 @@
     });
   }
   
-  // Update status message
-  function updateStatus(text, icon = '📊') {
-    const statusEl = document.getElementById('ceo-panel-status');
-    statusEl.innerHTML = `
-      <div class="ceo-status-icon">${icon}</div>
-      <div class="ceo-status-text">${text}</div>
-    `;
-  }
+    // Update status message
+    function updateStatus(text, icon = '📊') {
+      const statusEl = document.getElementById('ceo-panel-status');
+      if (!statusEl) return; // Panel not created yet, skip update
+      statusEl.innerHTML = `
+        <div class="ceo-status-icon">${icon}</div>
+        <div class="ceo-status-text">${text}</div>
+      `;
+    }
   
   // Find engagement opportunities
   async function findOpportunities() {
